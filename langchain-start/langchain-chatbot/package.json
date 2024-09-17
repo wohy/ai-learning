@@ -11,9 +11,12 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
     "@langchain/community": "^0.3.0",
     "@langchain/core": "^0.3.1",
     "@langchain/openai": "^0.3.0",
+    "@mui/material": "^6.1.0",
     "@remix-run/express": "^2.12.0",
     "@remix-run/node": "^2.12.0",
     "@remix-run/react": "^2.12.0",
