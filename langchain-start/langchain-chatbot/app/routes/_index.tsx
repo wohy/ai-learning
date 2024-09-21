@@ -32,7 +32,7 @@ export const loader: LoaderFunction = async () => {
   const today = dayjs().format("YYYY-MM-DD");
   const messages = [
     new HumanMessage(
-      `今天是 ${today} 请告诉我历史上发生在今天的影响较大的十二个事件, 并以以下数组格式返回给我:
+      `今天是 ${today} 请告诉我历史上发生在今天的影响较大的十二个事件, 日期月、日一定需要相同，如果没有十二件也可减少, 并以以下数组格式返回给我:
       [
         {
           title: string
