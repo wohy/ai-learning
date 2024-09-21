@@ -2,15 +2,18 @@ import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 import { HumanMessage } from "@langchain/core/messages";
 import { LoaderFunction, type MetaFunction } from "@remix-run/node";
 import {
-  json,
   useFetcher,
   useLoaderData,
+  Await,
+  defer,
 } from "@remix-run/react";
 import { Input } from "~/components/input";
 import { Skeleton } from "~/components/skeleton";
 import dayjs from "dayjs";
-import { formatString } from "~/utils/formatString";
 import BackgroundBlogCard from "~/components/card";
+import { Suspense } from "react";
+import { ReviewsSkeleton } from "~/components/ReviewsSkeleton";
+import { ErrorPage } from "~/components/ErrorPage";
 
 export const meta: MetaFunction = () => {
   return [
@@ -29,27 +32,55 @@ export const loader: LoaderFunction = async () => {
   const today = dayjs().format("YYYY-MM-DD");
   const messages = [
     new HumanMessage(
-      `今天是 ${today} 请告诉我历史上发生在今天的影响较大的十个事件, 输出为一个js数组，每一项即为一个事件`
+      `今天是 ${today} 请告诉我历史上发生在今天的影响较大的十二个事件, 并以以下数组格式返回给我:
+      [
+        {
+          title: string
+          event: string
+        }
+        ...
+      ]
+      数组的每一项即为一个事件, 其中 title 为事件的标题, event 为事件内容, 避免敏感事件
+      `
     ),
   ]; // 输入的 message
-  const stringOut = await glm4.invoke(messages);
-  return json(stringOut?.content);
+  const stringOut = glm4.invoke(messages);
+  return defer({ stringOut });
 };
 
 export default function Index() {
   const fetcher = useFetcher<string>();
-  const stringOut = useLoaderData<string>();
-
-  // const eventsArray = formatString(stringOut) || [];
-  console.log("fetcher", stringOut);
+  const { stringOut } = useLoaderData<typeof loader>();
 
   return (
-    <div className="flex h-screen items-center justify-center flex-col px-10">
-      {/* {eventsArray.map((item) => (
-        <BackgroundBlogCard imageSrc={item.image} content={item.content} />
-      ))} */}
+    <div className="h-screen p-10">
+      <Suspense fallback={<ReviewsSkeleton />}>
+        <Await resolve={stringOut} errorElement={<ErrorPage />}>
+          {(stringOut) => {
+            const aiOut = stringOut?.kwargs?.content;
+            let eventsArray = [];
+            let jsonPattern = /```json\n([\s\S]*?)```/;
+            let matches = aiOut?.match(jsonPattern) || [];
+            if (matches && matches.length > 0) {
+              let jsonStr = `${matches[1]}`;
+              try {
+                eventsArray = JSON.parse(jsonStr);
+              } catch (e) {
+                eventsArray = [];
+              }
+            }
+            return (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {eventsArray.map((item: { title: string; event: string }) => (
+                  <BackgroundBlogCard title={item.title} content={item.event} />
+                ))}
+              </div>
+            );
+          }}
+        </Await>
+      </Suspense>
       <fetcher.Form method="post" action="/chat">
-        <Input name="inputText" className="w-[100%] mb-20" type="text" />
+        <Input name="inputText" className="w-[100%] my-20" type="text" />
       </fetcher.Form>
       {fetcher.state === "loading" ? <Skeleton className="w-[100%]" /> : null}
       {fetcher.state === "idle" ? JSON.stringify(fetcher.data) : null}
