@@ -1,19 +1,14 @@
 import * as React from 'react';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
 
 export default function BackgroundBlogCard(props: { title: string, content: string }) {
   return (
-    <Card sx={{ width: 235 }}>
-        <CardContent>
-          {props.title ? <Typography gutterBottom variant="h5" component="div">
-            {props.title}
-          </Typography> : null}
-          {props.content ? <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {props.content}
-          </Typography> : null}
-        </CardContent>
-    </Card>
+    <article className="max-w-md mx-auto mt-4 shadow-lg border rounded-md duration-300 hover:shadow-sm">
+      <div className="pt-3 ml-4 mr-2 mb-3">
+        <h3 className="text-xl text-gray-900">
+          {props.title}
+        </h3>
+        <p className="text-gray-400 text-sm mt-1">{props.content}</p>
+      </div>
+    </article>
   );
 }

@@ -1,4 +1,5 @@
-import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
+// import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
+import { ChatMoonshot } from "@langchain/community/chat_models/moonshot";
 import { HumanMessage } from "@langchain/core/messages";
 import { LoaderFunction, type MetaFunction } from "@remix-run/node";
 import {
@@ -23,11 +24,16 @@ export const meta: MetaFunction = () => {
 };
 
 export const loader: LoaderFunction = async () => {
-  const apiKey = process.env.ZHIPUAI_API_KEY;
-  const glm4 = new ChatZhipuAI({
-    model: "glm-4", // Available models:
-    temperature: 1,
-    zhipuAIApiKey: apiKey, // In Node.js defaults to process.env.ZHIPUAI_API_KEY
+  const apiKey = process.env.MOONSHOT_API_KEY;
+  // const glm4 = new ChatZhipuAI({
+  //   model: "glm-4", // Available models:
+  //   temperature: 1,
+  //   zhipuAIApiKey: apiKey, // In Node.js defaults to process.env.ZHIPUAI_API_KEY
+  // });
+  const moonshotV132k = new ChatMoonshot({
+    apiKey: apiKey, // In Node.js defaults to process.env.MOONSHOT_API_KEY
+    model: "moonshot-v1-32k", // Available models: moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k
+    temperature: 0.3,
   });
   const today = dayjs().format("YYYY-MM-DD");
   const messages = [
@@ -44,7 +50,7 @@ export const loader: LoaderFunction = async () => {
       `
     ),
   ]; // 输入的 message
-  const stringOut = glm4.invoke(messages);
+  const stringOut = moonshotV132k.invoke(messages);
   return defer({ stringOut });
 };
 
