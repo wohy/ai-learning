@@ -25,11 +25,6 @@ export const meta: MetaFunction = () => {
 
 export const loader: LoaderFunction = async () => {
   const apiKey = process.env.MOONSHOT_API_KEY;
-  // const glm4 = new ChatZhipuAI({
-  //   model: "glm-4", // Available models:
-  //   temperature: 1,
-  //   zhipuAIApiKey: apiKey, // In Node.js defaults to process.env.ZHIPUAI_API_KEY
-  // });
   const moonshotV132k = new ChatMoonshot({
     apiKey: apiKey, // In Node.js defaults to process.env.MOONSHOT_API_KEY
     model: "moonshot-v1-32k", // Available models: moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k
@@ -65,10 +60,10 @@ export default function Index() {
           {(stringOut) => {
             const aiOut = stringOut?.kwargs?.content;
             let eventsArray = [];
-            let jsonPattern = /```json\n([\s\S]*?)```/;
-            let matches = aiOut?.match(jsonPattern) || [];
+            const jsonPattern = /```json\n([\s\S]*?)```/;
+            const matches = aiOut?.match(jsonPattern) || [];
             if (matches && matches.length > 0) {
-              let jsonStr = `${matches[1]}`;
+              const jsonStr = `${matches[1]}`;
               try {
                 eventsArray = JSON.parse(jsonStr);
               } catch (e) {
@@ -77,8 +72,8 @@ export default function Index() {
             }
             return (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {eventsArray.map((item: { title: string; event: string }) => (
-                  <BackgroundBlogCard title={item.title} content={item.event} />
+                {eventsArray.map((item: { title: string; event: string }, index: number) => (
+                  <BackgroundBlogCard title={item.title} content={item.event} key={index}/>
                 ))}
               </div>
             );

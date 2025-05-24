@@ -1,5 +1,3 @@
-import * as React from 'react';
-
 export default function BackgroundBlogCard(props: { title: string, content: string }) {
   return (
     <article className="max-w-md mx-auto mt-4 shadow-lg border rounded-md duration-300 hover:shadow-sm">
