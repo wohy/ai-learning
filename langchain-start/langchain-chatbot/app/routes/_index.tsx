@@ -1,6 +1,7 @@
 // import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 import { ChatMoonshot } from "@langchain/community/chat_models/moonshot";
-import { HumanMessage } from "@langchain/core/messages";
+// import { HumanMessage } from "@langchain/core/messages";
+import { OutputFixingParser } from "langchain/output_parsers";
 import { LoaderFunction, type MetaFunction } from "@remix-run/node";
 import {
   useFetcher,
@@ -15,6 +16,7 @@ import BackgroundBlogCard from "~/components/card";
 import { Suspense } from "react";
 import { ReviewsSkeleton } from "~/components/ReviewsSkeleton";
 import { ErrorPage } from "~/components/ErrorPage";
+import { formatInstructions, structuredParser, todayHistoryPrompt } from "~/prompt/todayHistoryPrompt";
 
 export const meta: MetaFunction = () => {
   return [
@@ -30,22 +32,18 @@ export const loader: LoaderFunction = async () => {
     model: "moonshot-v1-32k", // Available models: moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k
     temperature: 0.3,
   });
+  const chain = todayHistoryPrompt.pipe(moonshotV132k).pipe(structuredParser);
   const today = dayjs().format("YYYY-MM-DD");
-  const messages = [
-    new HumanMessage(
-      `今天是 ${today} 请告诉我历史上发生在今天的影响较大的十二个事件, 日期月、日一定需要相同，如果没有十二件也可减少, 并以以下数组格式返回给我:
-      [
-        {
-          title: string
-          event: string
-        }
-        ...
-      ]
-      数组的每一项即为一个事件, 其中 title 为事件的标题, event 为事件内容, 避免敏感事件
-      `
-    ),
-  ]; // 输入的 message
-  const stringOut = moonshotV132k.invoke(messages);
+  let stringOut: unknown
+  try {
+    stringOut = await chain.invoke({
+      current_date: today,
+      format_instructions: formatInstructions
+    });
+  } catch (e) {
+    stringOut = []
+  }
+  
   return defer({ stringOut });
 };
 
@@ -58,21 +56,22 @@ export default function Index() {
       <Suspense fallback={<ReviewsSkeleton />}>
         <Await resolve={stringOut} errorElement={<ErrorPage />}>
           {(stringOut) => {
-            const aiOut = stringOut?.kwargs?.content;
-            let eventsArray = [];
-            const jsonPattern = /```json\n([\s\S]*?)```/;
-            const matches = aiOut?.match(jsonPattern) || [];
-            if (matches && matches.length > 0) {
-              const jsonStr = `${matches[1]}`;
-              try {
-                eventsArray = JSON.parse(jsonStr);
-              } catch (e) {
-                eventsArray = [];
-              }
-            }
+            console.log('stringOut', stringOut)
+            // const aiOut = stringOut?.kwargs?.content;
+            // let eventsArray = [];
+            // const jsonPattern = /```json\n([\s\S]*?)```/;
+            // const matches = aiOut?.match(jsonPattern) || [];
+            // if (matches && matches.length > 0) {
+            //   const jsonStr = `${matches[1]}`;
+            //   try {
+            //     eventsArray = JSON.parse(jsonStr);
+            //   } catch (e) {
+            //     eventsArray = [];
+            //   }
+            // }
             return (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {eventsArray.map((item: { title: string; event: string }, index: number) => (
+                {stringOut.map((item: { title: string; event: string }, index: number) => (
                   <BackgroundBlogCard title={item.title} content={item.event} key={index}/>
                 ))}
               </div>
