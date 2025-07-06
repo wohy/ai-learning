@@ -1,17 +1,18 @@
 # 一个 LLM 如何在 chat 中记忆沟通的上下文？
 无脑的记忆所有的上下文，肯定会很容易超出 LLM 的上下文窗口大小，也会浪费大量的 Token 资源
+具体示例见 Memory.ipynb **（这里是 Memory 不兼容 LCEL 时的手动实现，当前 ​ConversationBufferWindowMemory 和 RunnableWithMessageHistory 已兼容 LCEL , 成为当前主流方案）**
 
-# 具体示例见 Memory.ipynb
+---
 
 ## ChatMessageHistory
-chat history 就是一组 Message 子类对象组成 List，Message 的子类对象包括 HumanMessage 和 AIMessage, Memory 即是构建在 chat history 之上的概念。
+chat history 就是一组 Message 子类对象组成 List , Message 的子类对象包括 HumanMessage 和 AIMessage, Memory 即是构建在 chat history 之上的概念。
 
 chat history 聊天历史， Memory 处理后的聊天历史
 
 LLM 是无状态的，他并不会存储我们的聊天历史，聊天历史是我们自行存储，并传递给 LLM 上下文的一部分
 
 ## 手动维护 chat history 简易做法
-1. 在 prompt 的 template 中使用 MessagesPlaceholder 创建一个后续可替换为 history 的插槽 history_message
+1. 在 prompt 的 template 中使用 MessagesPlaceholder 为后续的 history 预留位置
 ```js
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
@@ -27,7 +28,7 @@ const prompt = ChatPromptTemplate.fromMessages([
 const chain = prompt.pipe(chatModel);
 
 ```
-2. 通过 history.addMessage 手动维护 chat history， invoke 时手动将 聊天记录赋值给 插槽 history_message
+2. 通过 history.addMessage 手动维护 chat history , invoke 时手动将 聊天记录赋值给 插槽 history_message
 ```js
 import { ChatMessageHistory } from "langchain/stores/message/in_memory";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
@@ -64,11 +65,11 @@ const chainWithHistory = new RunnableWithMessageHistory({
 ```
 
 - `RunnableWithMessageHistory` 有几个参数：
-    - runnable 就是需要被包裹的 chain，可以是任意 chain
+    - runnable 就是需要被包裹的 chain ，可以是任意 chain
     - getMessageHistory 接收一个函数，函数需要根据传入的 `_sessionId`，去获取对应的 ChatMessageHistory 对象，这里我们没有 session 管理，所以就返回默认的对象
     - inputMessagesKey 用户传入的信息 key 的名称，因为 RunnableWithMessageHistory 要自动记录用户和 llm 发送的信息，所以需要在这里声明用户以什么 key 传入信息
-    - historyMessagesKey，聊天记录在 prompt 中的 key，因为要自动的把聊天记录注入到 prompt 中。
-    - outputMessagesKey，因为我们的 chain 只有一个输出就省略了，如果有多个输出需要指定哪个是 llm 的回复，也就是需要存储的信息。  
+    - historyMessagesKey ，聊天记录在 prompt 中的 key ，因为要自动的把聊天记录注入到 prompt 中。
+    - outputMessagesKey ，因为我们的 chain 只有一个输出就省略了，如果有多个输出需要指定哪个是 llm 的回复，也就是需要存储的信息。  
 
 
 ## 实现一个总结 chat history 的chain
@@ -157,7 +158,7 @@ const chatChain = RunnableSequence.from([
 ## Memory
 历史记录 ->  关键记忆
 
-### ConversationChain
+### ConversationChain （已弃用，改用 RunnableWithMessageHistory 兼容 LCEL）
 ```js
 import { ChatOpenAI } from "@langchain/openai";
 import { BufferMemory } from "langchain/memory";
@@ -174,7 +175,7 @@ const res1 = await chain.call({ input: "我是小明" });
 `ConversationChain` 没有暴露自定义接口的属性，所以无法修改内部处理逻辑
 
 
-### 内置的 Memory 机制
+### 内置的 Memory 机制 （BufferWindowMemory、 ConversationSummaryMemory 已弃用，改用 ConversationBufferWindowMemory 兼容 LCEL）
 #### 1. BufferWindowMemory
 ```js
 const model = new OpenAI();
@@ -225,8 +226,8 @@ const memory = new ConversationSummaryBufferMemory({
 const chain = new ConversationChain({ llm: model, memory: memory, verbose: true });
 ```
 
-#### 4. EntityMemory 
-动态记忆管理器：提取对话中的实体（如人名/地点），并构建结构化知识图谱。实体更新Prompt的目标是​​增量更新知识图谱​​，若实体无新信息，返回 UNCHANGED 避免冗余存储
+## EntityMemory 
+动态记忆管理器：提取对话中的实体（如人名/地点） ，并构建结构化知识图谱。实体更新 Prompt 的目标是​​ 增量更新知识图谱​​，若实体无新信息，返回 UNCHANGED 避免冗余存储
 ```js
 import { ChatOpenAI } from "@langchain/openai";
 import { EntityMemory, ENTITY_MEMORY_CONVERSATION_TEMPLATE } from "langchain/memory";
@@ -250,9 +251,8 @@ const chain = new ConversationChain({
 ```
 ---
 ![chain步骤](image.png)
----
 
-其中 `ENTITY_MEMORY_CONVERSATION_TEMPLATE` 是 langchain 提供的默认用于 EntityMemory chat 的 prompt，预置 prompt 模板：内含 {entities} 和 {history} 占位符，用于动态注入上下文，我们也可以自定义合适的 prompt
+其中 `ENTITY_MEMORY_CONVERSATION_TEMPLATE` 是 langchain 提供的默认用于 EntityMemory chat 的 prompt ，预置 prompt 模板：内含 {entities} 和 {history} 占位符，用于动态注入上下文，我们也可以自定义合适的 prompt
 
 - ENTITY_MEMORY_CONVERSATION_TEMPLATE 的真实结构如下（简化）：
 ```
@@ -274,7 +274,7 @@ const res2 = await chain.call({ input: "ABC 是一家互联网公司，主要是
 
 ---
 
-EntityMemory 内部用于实体提取的独立 Prompt​​ 内容如下：
+EntityMemory 内部用于实体提取的独立 prompt ​内容如下：
 ```
 You are an AI assistant reading the transcript of a conversation between an AI and a 
 human. Extract all of the proper nouns from the last line of conversation. As a 
@@ -310,12 +310,12 @@ Output: Langchain, Person #2
 END OF EXAMPLE
 ```
 解析一下：
-- 首先第一段去讲清楚任务的背景，一个阅读对话记录，并且从最后一次对话中提取名词的 ai，因为核心目标是英语，这里给了提示，一般专有名词是大写的。并且强调一定提取所有的名词。 这部分给定了任务、任务提示和要求。
+- 首先第一段去讲清楚任务的背景，一个阅读对话记录，并且从最后一次对话中提取名词的 ai ，因为核心目标是英语，这里给了提示，一般专有名词是大写的。并且强调一定提取所有的名词。 这部分给定了任务、任务提示和要求。
 - 第二段，强调历史聊天记录仅仅是用于参考，并且再次强调只提取最后一次对话中出现的专有名词，并指定多个专有名词的返回格式和没有任何专有名词的返回格式。
-- 然后就是两个例子，第一个例子是普通的例子，主要是用例子更具象化的介绍这个任务。第二个我认为是以 Person \#2 为例强化对名词的概念。 few-shot prompt，也就是通过例子去强化 llm 对任务的理解是常见和效果非常好的技巧
+- 然后就是两个例子，第一个例子是普通的例子，主要是用例子更具象化的介绍这个任务。第二个我认为是以 Person \#2 为例强化对名词的概念。 few-shot prompt ，也就是通过例子去强化 llm 对任务的理解是常见和效果非常好的技巧
 - 最后在 `Conversation history (for reference only)` 再次强化 chat history 只是为了作为参考，`Last line of conversation (for extraction)` 这里才是作为提取的目标
 
-最后，llm 返回："ABC" 
+最后， llm 返回："ABC" 
 可以看到 llm 只提取了最后一段聊天中的名词
 
 ---
@@ -338,10 +338,10 @@ If there is no new information about the provided entity or the information is n
 
 Full conversation history (for context):
 Human: 我叫小明，今年 18 岁
-AI: 你好，小明！很高兴认识你。你今年18岁，正是年轻有活力的时候。有什么问题我能帮你解答，或者关于什么话题你想和我交谈呢？
+AI: 你好，小明！ 很高兴认识你。你今年18岁, 正是年轻有活力的时候。有什么问题我能帮你解答，或者关于什么话题你想和我交谈呢？
 
 Human: ABC 是一家互联网公司，主要是售卖方便面的公司
-AI: ABC是一个非常有趣的公司，把互联网技术和方便面销售结合在一起。这两个领域似乎毫不相关，但在这个时代，创新的商业模式正在不断涌现。他们是否有使用特殊的营销策略或技术来提高销售或提高客户体验呢？
+AI: ABC 是一个非常有趣的公司， 把互联网技术和方便面销售结合在一起。这两个领域似乎毫不相关，但在这个时代，创新的商业模式正在不断涌现。他们是否有使用特殊的营销策略或技术来提高销售或提高客户体验呢？
 
 Entity to summarize:
 ABC
@@ -363,3 +363,70 @@ Updated summary (or the exact string \"UNCHANGED\" if there is no new informatio
 ABC is an internet company that primarily sells instant noodles.
 ```
 ![完整流程](image-1.png)
+
+# 兼容 LCEL 实现的自动 Memory （推荐最佳实践）
+根据 LangChain 的官方更新和最佳实践，​​ConversationChain 和 BufferWindowMemory 已被弃用​​，而 ​​ConversationBufferWindowMemory 和 RunnableWithMessageHistory 已成为当前主流方案​​。
+## ​​RunnableWithMessageHistory​​
+作为 LCEL 的​​核心封装器​​，它通过 session_id 动态绑定独立的历史记录，自动管理以下流程：
+调用前：通过 get_session_history() 加载历史记录并注入提示词
+调用后：将当前输入（input）和输出（output）自动保存到内存
+## ConversationBufferWindowMemory​​
+作为​​历史存储的具体实现​​，它通过 k 参数限制记忆窗口大小，避免上下文过长。其输出格式（returnMessages=True）可直接被 RunnableWithMessageHistory 使用
+
+## 基础实现
+```js
+import { RunnableSequence, RunnablePassthrough } from "@langchain/core/runnables";
+import { ChatOpenAI } from "@langchain/openai";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { 
+  RunnableWithMessageHistory,
+  ConversationBufferWindowMemory 
+} from "@langchain/community/memory";
+
+// 1. 定义基础链（无内存）
+const baseChain = RunnableSequence.from([
+  RunnablePassthrough.assign({
+    history: (input) => input.memory?.history || [] // 动态注入历史
+  }),
+  prompt, // 需包含 {history} 占位符
+  new ChatOpenAI({ model: "gpt-4-turbo", temperature: 0.7 }),
+  new StringOutputParser()
+]);
+
+// 2. 初始化支持多会话的内存
+const memory = new ConversationBufferWindowMemory({
+  k: 5, // 保留最近5轮对话
+  returnMessages: true, // 返回Message对象
+  memoryKey: "history" // 与prompt占位符一致
+});
+
+// 3. 封装带自动内存管理的链
+const chainWithMemory = new RunnableWithMessageHistory({
+  runnable: baseChain,
+  getMessageHistory: (sessionId) => memory, // 按会话ID隔离记忆
+  inputMessagesKey: "input",  // 用户输入的键
+  historyMessagesKey: "history" // 历史记录的键
+});
+
+// 4. 调用示例（自动保存input/output）
+const runDemo = async () => {
+  // 用户A会话
+  const resA1 = await chainWithMemory.invoke(
+    { input: "我叫小明" },
+    { configurable: { sessionId: "user_A" } }
+  );
+  
+  // 用户B会话（独立记忆）
+  const resB = await chainWithMemory.invoke(
+    { input: "1+1等于几？" },
+    { configurable: { sessionId: "user_B" } }
+  );
+
+  // 用户A后续问题（保留历史）
+  const resA2 = await chainWithMemory.invoke(
+    { input: "我的名字是什么？" },
+    { configurable: { sessionId: "user_A" } } // 正确输出“你叫小明”
+  );
+};
+runDemo();
+```
