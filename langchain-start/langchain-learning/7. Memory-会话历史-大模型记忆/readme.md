@@ -365,7 +365,7 @@ ABC is an internet company that primarily sells instant noodles.
 ![完整流程](image-1.png)
 
 # 兼容 LCEL 实现的自动 Memory （推荐最佳实践）
-根据 LangChain 的官方更新和最佳实践，​​ConversationChain 和 BufferWindowMemory 已被弃用​​，而 ​​ConversationBufferWindowMemory 和 RunnableWithMessageHistory 已成为当前主流方案​​。
+根据 LangChain 的官方更新和最佳实践， ​​ConversationChain 和 BufferWindowMemory 已被弃用​​，而 ​​ConversationBufferWindowMemory 和 RunnableWithMessageHistory 已成为当前主流方案​​。
 ## ​​RunnableWithMessageHistory​​
 作为 LCEL 的​​核心封装器​​，它通过 session_id 动态绑定独立的历史记录，自动管理以下流程：
 调用前：通过 get_session_history() 加载历史记录并注入提示词
